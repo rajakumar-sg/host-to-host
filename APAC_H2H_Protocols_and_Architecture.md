@@ -24,21 +24,57 @@ Evidence grade (Ev.): **A** bank-published technical detail · **B** bank market
 | **Goldman Sachs** (reference, non-APAC) | Transaction Banking file connectivity | SFTP push (payments) and pull (responses, statements); SSH public key (RSA 1024-4096); IP/CIDR allow-list; PGP encryption and signing, public keys exchanged both ways (RSA or DSA/ElGamal 1024-4096). | ISO 20022 via EBICS (pain.001, camt.052/053, pain.002); others per file support dictionary. | SWIFT FileAct (store-and-forward and real-time; generic and corporate); EBICS v2.5 | Client (SFTP push, PGP sign + encrypt) -> GS SFTP -> Transaction Banking; Client pulls responses from GS SFTP | Prerequisites: SSH key, IP list, PGP keys. | https://developer.gs.com/docs/services/transaction-banking/fileconnectivity/<br>https://developer.gs.com/docs/services/transaction-banking/ebicsconnectivity/ | A |
 | **ING** (reference, non-APAC) | InsideBusiness Connect File Transfer | sFTP, AS2, FTPS; authentication via TLS certificates or SSH-RSA keys; confidentiality and non-repudiation via CMS or PGP. | ISO 20022 XML and other industry formats. | n/r | Client ERP/TMS (sFTP/AS2/FTPS) -> ING file transfer -> ING network including third-party accounts | Test connectivity and formats in the ING customer onboarding environment. | https://www.ingwb.com/en/digital-banking-services/insidebusiness-connect-file-transfer | A |
 
+
 ---
 
-## 2. Protocol-to-bank index (supports the diagram)
+## 2. Architecture: client to bank over H2H transport rails
 
-| Protocol / rail | Banks that publicly confirm it | Evidence URLs |
-|---|---|---|
-| **SFTP over SSH** | DBS (customer story), UOB, HSBC, Citi, JPM, ANZ, CBA | DBS: https://www.files.com/customer-stories/busy-bees-singapore-busy-bees-needed-to-connect-its-netsuite-erp-directly-to-dbs<br>UOB: https://www.uob.com.sg/business/digital/regional-file-transfer-services.page<br>HSBC: https://www.business.hsbc.com.ph/en-gb/products/hsbc-connect<br>Citi: https://citi.com/icg/sa/emea/hungary/english/sections/internet-banking/citiconnect.html<br>JPM: https://www.jpmorgan.com/payments/client-resource-center/h2h<br>ANZ: https://help.online.anz.com/hc/en-au/articles/4412678689305-ANZ-Fileactive-FAQs<br>CBA: https://www.commbank.com.au/business/online-banking/commbiz/user-guides/commbiz-automated-sftp-upgrade.html |
-| **PGP (file or payload encryption and signing)** | DBS (customer story), UOB, HSBC, JPM (guide, third-party copy), ANZ | Same URLs as SFTP for DBS, UOB, HSBC, ANZ; JPM: https://www.scribd.com/document/686611748/H2H-Connectivity-Guide-V7-3 |
-| **AS2 (HTTP/S + S/MIME)** | HSBC, Citi, JPM; ANZ (glossary only) | HSBC and Citi pages above; JPM H2H page above; ANZ FAQ above |
-| **FTPS and HTTPS (SOAP / web service)** | HSBC (FTPS, HTTPS SOAP), Citi (FTPS, HTTPS), JPM (HTTPS; FTPS per guide) | HSBC, Citi and JPM pages above |
-| **EBICS** | JPM, SC | JPM H2H page above; SC: https://www.sc.com/en/corporate-investment-banking/transaction-banking/straight2bank/ |
-| **SWIFT FileAct / FIN (SCORE, MA-CUG)** | DBS, OCBC, UOB, MUFG, Mizuho, Citi, ANZ, SC | DBS: https://www.dbs.com.sg/sme/day-to-day/ways-to-bank/connect-for-swift<br>OCBC: https://www.ocbc.com/business-banking/digital-business-banking/iso20022<br>UOB: https://www.uob.com.sg/business/digital/swift-services.page<br>MUFG: https://www.bk.mufg.jp/global/productsandservices/transaction/cashmanagement/swiftconnectivity.html<br>Mizuho: https://www.mizuhogroup.com/bank/what-we-do/cash-management?tab=mizuho-global-host-to-host-service<br>Citi: https://citi.com/icg/sa/emea/hungary/english/sections/internet-banking/citiconnect.html<br>ANZ: https://help.online.anz.com/hc/en-au/articles/52634910247321-December-Announcements-2025<br>SC: https://www.sc.com/en/corporate-investment-banking/transaction-banking/straight2bank/ |
-| **Transport not published** | OCBC, MUFG GPH (Internet), Mizuho, SC (H2H) | Product pages in the table above |
+A client ERP or TMS sends payment files to the bank over one of six transport rails. The bank's H2H gateway receives them, maps and validates them per client, optionally hands approval to online banking, then passes them to the payment engine. Acknowledgements, status and statements return on the same rail (dashed line).
 
-**Common H2H pattern across banks (my view):** SSH key plus IP allow-list for transport, PGP sign-and-encrypt for the payload, per-client IN/OUT folders, a non-production environment before go-live, bank-side format translation and validation, and acknowledgement or status files returned on the same rail. Goldman Sachs and ING publish this pattern most explicitly.
+![H2H architecture: client ERP/TMS to six transport rails (SFTP + PGP, AS2, FTPS and HTTPS, EBICS, SWIFT, not published), then bank-side H2H gateway, map and validate, optional approval, payment engine, and acknowledgements returning to the client][arch-png]
+![alt text](image.png)
+
+### Text version (renders in any viewer)
+
+```text
+     Client side                   Transport rails                      Bank side
+
+                            ┌───────────────────────────┐       ┌──────────────────────┐
+                        ┌──►│ SFTP over SSH + PGP       │───┬──►│ H2H gateway          │
+                        │   ├───────────────────────────┤   │   │ folders · keys       │
+┌───────────────────┐   ├──►│ AS2 over HTTP/S           │───┤   └──────────────────────┘
+│                   │   │   ├───────────────────────────┤   │              │
+│ Client ERP/TMS    │   ├──►│ FTPS and HTTPS (SOAP)     │───┤              ▼
+│ SAP, Oracle, TMS  ├───┤   ├───────────────────────────┤   │   ┌──────────────────────┐
+│                   │   ├──►│ EBICS                     │───┤   │ Map + validate       │
+│                   │   │   ├───────────────────────────┤   │   │ per-client rules     │
+└───────────────────┘   ├──►│ SWIFT FileAct / FIN       │───┤   └──────────────────────┘
+          ▲             │   ├───────────────────────────┤   │              │
+          │             └──►│ Protocol not published    │───┘              ▼
+          │                 └───────────────────────────┘       ┌──────────────────────┐
+          │                                                     │ Approval             │
+          │                                                     │ optional hand-off    │
+          │                                                     └──────────────────────┘
+          │                                                                │
+          │                                                                ▼
+          │                                                     ┌──────────────────────┐
+          │                                                     │ Payment engine       │
+          │                                                     │ clearing, posting    │
+          │                                                     └──────────────────────┘
+          │                                                                │
+          │                                                                ▼
+          │                                                     ┌──────────────────────┐
+          │                                                     │ Ack + status         │
+          │                                                     │ statements back      │
+          │                                                     └──────────┬───────────┘
+          ┌─── acks, status and statements return on the same rail ────────┘
+```
+
+How to read the diagram:
+
+- In the image, purple boxes are transport rails, teal boxes are bank-side processing and gray boxes are neutral or optional.
+- "Protocol not published" covers banks that offer H2H but do not state the transport on the pages I found: OCBC, MUFG GPH (Internet), Mizuho and SC (H2H).
+- The approval hand-off is optional and exists at UOB (BIBPlus), ANZ (Hybrid via Transactive Global) and SC (online release).
 
 ---
 
