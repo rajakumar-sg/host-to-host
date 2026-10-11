@@ -148,13 +148,3 @@ flowchart LR
 
 URLs: https://help.online.anz.com/hc/en-au/articles/4412678689305-ANZ-Fileactive-FAQs · https://help.online.anz.com/hc/en-au/articles/4412678695065-ANZ-Fileactive-Overview · https://help.online.anz.com/hc/en-au/articles/43605390311705-ANZ-Fileactive-Connection-Types
 
----
-
-## 4. Limitations
-
-- Public sources only; bank pages can be region-specific. Citi protocol detail comes from an EMEA page.
-- DBS protocol detail comes from a third-party customer story. OCBC, SC, MUFG and Mizuho publish no H2H transport detail on the pages found.
-- ANZ lists AS2 and FTP only in a glossary.
-- The J.P. Morgan connectivity guide is a third-party copy of a bank document.
-- J.P. Morgan and CBA SWIFT connectivity were not researched; HSBC SWIFT connectivity is shown only in dated sources and is not in the protocol map.
-- Component names in the UOB flow (ROS, DMP) are as published in the deck and are not interpreted further.
